@@ -7,7 +7,6 @@ _base_ = [
 norm_cfg = dict(type='SyncBN', requires_grad=True)
 model = dict(
     type='DepthEncoderDecoder',
-    pretrained='https://github.com/rwightman/pytorch-image-models/releases/download/v0.1-vitjx/jx_vit_base_p16_224-80ecf9dd.pth',  # noqa
     backbone=dict(
         type='VisionTransformer',
         img_size=(576, 384),

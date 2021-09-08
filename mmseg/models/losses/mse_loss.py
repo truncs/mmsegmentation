@@ -18,6 +18,7 @@ class MSELoss(nn.Module):
                  reduction='mean',
                  class_weight=None,
                  loss_weight=1.0):
+        super(MSELoss, self).__init__()
         self.use_mask = use_mask
         self.reduction = reduction
 
