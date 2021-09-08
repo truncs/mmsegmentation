@@ -282,3 +282,93 @@ class EncoderDecoder(BaseSegmentor):
         # unravel batch dim
         seg_pred = list(seg_pred)
         return seg_pred
+
+
+@SEGMENTORS.register_module()
+class DepthEncoderDecoder(EncoderDecoder):
+    """Encoder Decoder segmentors.
+
+    EncoderDecoder typically consists of backbone, decode_head, auxiliary_head.
+    Note that auxiliary_head is only used for deep supervision during training,
+    which could be dumped during inference.
+    """
+
+    def __init__(self,
+                 backbone,
+                 decode_head,
+                 neck=None,
+                 auxiliary_head=None,
+                 train_cfg=None,
+                 test_cfg=None,
+                 pretrained=None,
+                 init_cfg=None):
+        super(DepthEncoderDecoder, self).__init__(
+            backbone,
+            decode_head,
+            neck,
+            auxiliary_head,
+            train_cfg,
+            test_cfg,
+            pretrained,
+            init_cfg
+        )
+
+    def _decode_head_forward_train(self, x, img_metas, inv_depth_map, mask):
+        """Run forward function and calculate loss for decode head in
+        training."""
+        losses = dict()
+        loss_decode = self.decode_head.forward_train(x, img_metas,
+                                                     inv_depth_map,
+                                                     mask,
+                                                     self.train_cfg)
+        losses.update(add_prefix(loss_decode, 'decode'))
+        return losses
+
+    def _auxiliary_head_forward_train(self, x, img_metas, inv_depth_map, mask):
+        """Run forward function and calculate loss for auxiliary head in
+        training."""
+        losses = dict()
+        if isinstance(self.auxiliary_head, nn.ModuleList):
+            for idx, aux_head in enumerate(self.auxiliary_head):
+                loss_aux = aux_head.forward_train(x, img_metas,
+                                                  inv_depth_map,
+                                                  mask,
+                                                  self.train_cfg)
+                losses.update(add_prefix(loss_aux, f'aux_{idx}'))
+        else:
+            loss_aux = self.auxiliary_head.forward_train(
+                x, img_metas, inv_depth_map, self.train_cfg)
+            losses.update(add_prefix(loss_aux, 'aux'))
+
+        return losses
+
+    def forward_train(self, img, img_metas, inv_depth_map, mask):
+        """Forward function for training.
+
+
+        Args:
+            img (Tensor): Input images.
+            img_metas (list[dict]): List of image info dict where each dict
+                has: 'img_shape', 'scale_factor', 'flip', and may also contain
+                'filename', 'ori_shape', 'pad_shape', and 'img_norm_cfg'.
+                For details on the values of these keys see
+                `mmseg/datasets/pipelines/formatting.py:Collect`.
+            gt_semantic_seg (Tensor): Semantic segmentation masks
+                used if the architecture supports semantic segmentation task.
+
+        Returns:
+            dict[str, Tensor]: a dictionary of loss components
+        """
+        x = self.extract_feat(img)
+
+        losses = dict()
+        loss_decode = self._decode_head_forward_train(x, img_metas,
+                                                      inv_depth_map, mask)
+        losses.update(loss_decode)
+
+        if self.with_auxiliary_head:
+            loss_aux = self._auxiliary_head_forward_train(
+                x, img_metas, inv_depth_map, mask)
+            losses.update(loss_aux)
+
+        return losses

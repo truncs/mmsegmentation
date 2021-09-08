@@ -152,3 +152,70 @@ class LoadAnnotations(object):
         repr_str += f'(reduce_zero_label={self.reduce_zero_label},'
         repr_str += f"imdecode_backend='{self.imdecode_backend}')"
         return repr_str
+
+
+@PIPELINES.register_module()
+class LoadDepth(object):
+    """Load annotations for semantic segmentation.
+
+    Args:
+        reduce_zero_label (bool): Whether reduce all label value by 1.
+            Usually used for datasets where 0 is background label.
+            Default: False.
+        file_client_args (dict): Arguments to instantiate a FileClient.
+            See :class:`mmcv.fileio.FileClient` for details.
+            Defaults to ``dict(backend='disk')``.
+        imdecode_backend (str): Backend for :func:`mmcv.imdecode`. Default:
+            'pillow'
+    """
+
+    def __init__(self, file_client_args=dict(backend='disk'),
+                 imdecode_backend='pillow'):
+        self.file_client_args = file_client_args.copy()
+        self.file_client = None
+        self.imdecode_backend = imdecode_backend
+
+    def __call__(self, results):
+        """Call function to load multiple types annotations.
+
+        Args:
+            results (dict): Result dict from :obj:`mmseg.CustomDataset`.
+
+        Returns:
+            dict: The dict contains loaded semantic segmentation annotations.
+        """
+
+        if self.file_client is None:
+            self.file_client = mmcv.FileClient(**self.file_client_args)
+
+        if results.get('depth_map_prefix', None) is not None:
+            filename = osp.join(results['depth_map_prefix'],
+                                results['depth_info']['depth_map'])
+
+        img_bytes = self.file_client.get(filename)
+        depth_map = mmcv.imfrombytes(
+            img_bytes, flag='unchanged',
+            backend=self.imdecode_backend).squeeze().astype(np.uint16)
+
+        depth_map = depth_map / 256.0
+        inv_depth_map = np.divide(1, depth_map, where=depth_map != 0)
+        mask = depth_map == 0.0
+        mask = 1 * mask
+
+        # TODO: you would probably need a mask as well so that the pixels
+        # that are zero can be masked.
+        results['depth_map'] = depth_map
+        results['inv_depth_map'] = inv_depth_map
+        results['mask'] = mask
+
+        # TODO: This is essentially a hack to get the mmcv segmentation
+        # pipeline to work with depth.
+        results['seg_fields'].append('depth_map')
+        results['seg_fields'].append('inv_depth_map')
+        results['seg_fields'].append('mask')
+        return results
+
+    def __repr__(self):
+        repr_str = self.__class__.__name__
+        repr_str += f"imdecode_backend='{self.imdecode_backend}')"
+        return repr_str

@@ -597,10 +597,9 @@ class RandomCrop(object):
             dict: Randomly cropped results, 'img_shape' key in result dict is
                 updated according to crop size.
         """
-
         img = results['img']
         crop_bbox = self.get_crop_bbox(img)
-        if self.cat_max_ratio < 1.:
+        if self.cat_max_ratio < 1. and 'gt_semantic_seg' in results:
             # Repeat 10 times
             for _ in range(10):
                 seg_temp = self.crop(results['gt_semantic_seg'], crop_bbox)

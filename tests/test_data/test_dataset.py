@@ -10,8 +10,8 @@ from PIL import Image
 
 from mmseg.core.evaluation import get_classes, get_palette
 from mmseg.datasets import (DATASETS, ADE20KDataset, CityscapesDataset,
-                            ConcatDataset, CustomDataset, PascalVOCDataset,
-                            RepeatDataset)
+                            ConcatDataset, CustomDataset, DepthDataset,
+                            PascalVOCDataset, RepeatDataset)
 
 
 def test_classes():
@@ -60,6 +60,50 @@ def test_dataset_wrapper():
     assert repeat_dataset[15] == 5
     assert repeat_dataset[27] == 7
     assert len(repeat_dataset) == 10 * len(dataset_a)
+
+
+def test_depth_dataset():
+    img_norm_cfg = dict(
+        mean=[123.675, 116.28, 103.53],
+        std=[58.395, 57.12, 57.375],
+        to_rgb=True)
+    crop_size = (576, 384)
+    train_pipeline = [
+        dict(type='LoadImageFromFile'),
+        dict(type='LoadDepth'),
+        dict(type='Resize', img_scale=(4096, 2048), ratio_range=(0.5, 2.0)),
+        dict(type='RandomCrop', crop_size=crop_size, cat_max_ratio=0.75),
+        dict(type='RandomFlip', prob=0.5),
+        dict(type='PhotoMetricDistortion'),
+        dict(type='Normalize', **img_norm_cfg),
+        dict(type='DefaultFormatBundle'),
+        dict(type='Collect', keys=['img', 'inv_depth_map', 'mask']),
+    ]
+
+    train_dataset = DepthDataset(
+        train_pipeline,
+        data_root=osp.join(
+            osp.dirname(__file__), '../data/pseudo_depth_dataset'),
+        img_dir='imgs/',
+        depth_map_dir='depth_maps/',
+        img_suffix='.jpg',
+        depth_map_suffix='.png')
+    assert len(train_dataset) == 1
+
+    # training data get
+    train_data = train_dataset[0]
+    assert isinstance(train_data, dict)
+
+    # Relevant keys in the dataset
+    assert 'img' in train_data
+    assert 'inv_depth_map' in train_data
+    assert 'mask' in train_data
+
+    c, h, w = train_data['img'].data.shape
+    assert (h, w) == train_data['inv_depth_map'].data.shape
+    assert (h, w) == train_data['mask'].data.shape
+
+    assert (h, w) == crop_size
 
 
 def test_custom_dataset():

@@ -8,6 +8,48 @@ from mmseg.models.decode_heads.cascade_decode_head import BaseCascadeDecodeHead
 from mmseg.models.decode_heads.decode_head import BaseDecodeHead
 
 
+def _demo_mm_depth_inputs(input_shape=(1, 3, 8, 16)):
+    """Create a superset of inputs needed to run test or train batches.
+
+    Args:
+        input_shape (tuple):
+            input batch dimensions
+
+        num_classes (int):
+            number of semantic classes
+    """
+    (N, C, H, W) = input_shape
+
+    rng = np.random.RandomState(0)
+
+    imgs = rng.rand(*input_shape)
+
+    output_shape = (N, 1, H, W)
+    output = rng.rand(*output_shape)
+
+    mask = rng.rand(*output_shape)
+    mask = 1.0 * (mask > 0.5)
+
+    img_metas = [{
+        'img_shape': (H, W, C),
+        'ori_shape': (H, W, C),
+        'pad_shape': (H, W, C),
+        'filename': '<demo>.png',
+        'scale_factor': 1.0,
+        'flip': False,
+        'flip_direction': 'horizontal'
+    } for _ in range(N)]
+
+    mm_inputs = {
+        'imgs': torch.FloatTensor(imgs),
+        'img_metas': img_metas,
+        'depth_map': torch.FloatTensor(output),
+        'inv_depth_map': torch.FloatTensor(1 / output),
+        'mask': torch.FloatTensor(mask)
+    }
+    return mm_inputs
+
+
 def _demo_mm_inputs(input_shape=(1, 3, 8, 16), num_classes=10):
     """Create a superset of inputs needed to run test or train batches.
 
@@ -23,6 +65,8 @@ def _demo_mm_inputs(input_shape=(1, 3, 8, 16), num_classes=10):
     rng = np.random.RandomState(0)
 
     imgs = rng.rand(*input_shape)
+
+    segs = rng.rand
     segs = rng.randint(
         low=0, high=num_classes - 1, size=(N, 1, H, W)).astype(np.uint8)
 
@@ -69,6 +113,26 @@ class ExampleDecodeHead(BaseDecodeHead):
 
 
 @HEADS.register_module()
+class ExampleDecodeHeadMSE(BaseDecodeHead):
+
+    def __init__(self):
+        super(ExampleDecodeHeadMSE, self).__init__(3, 3, num_classes=1)
+
+    def forward_train(self, inputs, img_metas, gt_depth, mask, train_cfg):
+        pred = self.cls_seg(inputs[0])
+        losses = self.losses(pred, gt_depth, mask)
+        return losses
+
+    def forward(self, inputs):
+        return self.cls_seg(inputs[0])
+
+    def losses(self, depth_target, depth_label, mask):
+        loss = dict()
+        loss['loss_seg'] = depth_target
+        return loss
+
+
+@HEADS.register_module()
 class ExampleCascadeDecodeHead(BaseCascadeDecodeHead):
 
     def __init__(self):
@@ -99,6 +163,49 @@ def _segmentor_forward_train_test(segmentor):
     # Test forward train
     losses = segmentor.forward(
         imgs, img_metas, gt_semantic_seg=gt_semantic_seg, return_loss=True)
+    assert isinstance(losses, dict)
+
+    # Test forward simple test
+    with torch.no_grad():
+        segmentor.eval()
+        # pack into lists
+        img_list = [img[None, :] for img in imgs]
+        img_meta_list = [[img_meta] for img_meta in img_metas]
+        segmentor.forward(img_list, img_meta_list, return_loss=False)
+
+    # Test forward aug test
+    with torch.no_grad():
+        segmentor.eval()
+        # pack into lists
+        img_list = [img[None, :] for img in imgs]
+        img_list = img_list + img_list
+        img_meta_list = [[img_meta] for img_meta in img_metas]
+        img_meta_list = img_meta_list + img_meta_list
+        segmentor.forward(img_list, img_meta_list, return_loss=False)
+
+
+def _segmentor_depth_forward_train_test(segmentor):
+    # batch_size=2 for BatchNorm
+    mm_inputs = _demo_mm_depth_inputs()
+
+    imgs = mm_inputs.pop('imgs')
+    img_metas = mm_inputs.pop('img_metas')
+    inv_depth_map = mm_inputs['inv_depth_map']
+    mask = mm_inputs['mask']
+
+    # convert to cuda Tensor if applicable
+    if torch.cuda.is_available():
+        segmentor = segmentor.cuda()
+        imgs = imgs.cuda()
+        inv_depth_map = inv_depth_map.cuda()
+
+    # Test forward train
+    losses = segmentor.forward(
+        imgs, img_metas,
+        inv_depth_map=inv_depth_map,
+        mask=mask,
+        return_loss=True
+    )
     assert isinstance(losses, dict)
 
     # Test forward simple test

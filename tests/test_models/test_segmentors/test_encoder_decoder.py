@@ -3,6 +3,7 @@ from mmcv import ConfigDict
 
 from mmseg.models import build_segmentor
 from .utils import _segmentor_forward_train_test
+from .utims import _segmentor_depth_forward_train_test
 
 
 def test_encoder_decoder():
@@ -45,3 +46,15 @@ def test_encoder_decoder():
     cfg.test_cfg = ConfigDict(mode='whole')
     segmentor = build_segmentor(cfg)
     _segmentor_forward_train_test(segmentor)
+
+
+def test_depth_encoder_decoder():
+    cfg = ConfigDict(
+        type='DepthEncoderDecoder',
+        backbone=dict(type='ExampleBackbone'),
+        decode_head=dict(type='ExampleDecodeHeadMSE'),
+        train_cfg=None,
+        test_cfg=dict(mode='whole'))
+
+    segmentor = build_segmentor(cfg)
+    _segmentor_depth_forward_train_test(segmentor)
