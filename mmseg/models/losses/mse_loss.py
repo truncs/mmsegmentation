@@ -37,9 +37,11 @@ class MSELoss(nn.Module):
         """Forward function."""
         if self.use_mask:
             input = mask * input
+            target = mask * target
+
         loss = self.loss_cls(input, target)
 
         if self.use_mask and self.reduction == 'mean':
-                loss = loss / mask.sum()
+            loss = loss / mask.sum()
 
         return loss

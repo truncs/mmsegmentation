@@ -8,7 +8,7 @@ train_pipeline = [
     dict(type='LoadImageFromFile'),
     dict(type='LoadDepth'),
     dict(type='Resize', img_scale=(4096, 2048), ratio_range=(0.5, 2.0)),
-    dict(type='RandomCrop', crop_size=crop_size, cat_max_ratio=0.75),
+    dict(type='DepthRandomCrop', crop_size=crop_size, valid_min_ratio=0.1),
     dict(type='RandomFlip', prob=0.5),
     dict(type='PhotoMetricDistortion'),
     dict(type='Normalize', **img_norm_cfg),

@@ -154,11 +154,12 @@ def main():
             cfg.checkpoint_config.meta = dict(
                 mmseg_version=f'{__version__}+{get_git_hash()[:7]}',
                 config=cfg.pretty_text)
-                
+
     # add an attribute for visualization convenience
     model.CLASSES = datasets[0].CLASSES if 'CLASSES' in datasets[0] else 1
     # passing checkpoint meta for saving best checkpoint
     meta.update(cfg.checkpoint_config.meta)
+
     train_segmentor(
         model,
         datasets,

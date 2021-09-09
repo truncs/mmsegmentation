@@ -3,7 +3,6 @@ from mmseg.ops import resize
 
 from .uper_head import UPerHead
 from ..builder import HEADS
-from ..losses import accuracy
 
 
 @HEADS.register_module()
@@ -63,5 +62,5 @@ class UPerHeadMSE(UPerHead):
             pred,
             gt_depth,
             mask=mask)
-        #loss['acc_seg'] = accuracy(depth_target, depth_label)
+
         return loss

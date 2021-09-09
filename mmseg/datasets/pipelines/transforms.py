@@ -627,6 +627,47 @@ class RandomCrop(object):
 
 
 @PIPELINES.register_module()
+class DepthRandomCrop(RandomCrop):
+    def __init__(self, crop_size, valid_min_ratio=0.25, ignore_index=255):
+        super(DepthRandomCrop, self).__init__(
+            crop_size
+        )
+        self.valid_min_ratio = valid_min_ratio
+
+    def __call__(self, results):
+        """Call function to randomly crop images and inv_depth_map if the
+              inv_depth_map have valid values greater than valid_min_ratio
+
+        Args:
+            results (dict): Result dict from loading pipeline.
+
+        Returns:
+            dict: Randomly cropped results, 'image_shape' key in result dict
+                is updated according to crop size.
+        """
+        img = results['img']
+        crop_bbox = self.get_crop_bbox(img)
+        # Repeat 10 times
+        for _ in range(10):
+            mask = self.crop(results['mask'], crop_bbox)
+            if np.sum(mask) / np.size(mask) > self.valid_min_ratio:
+                break
+            crop_bbox = self.get_crop_bbox(img)
+
+        # crop the image
+        img = self.crop(img, crop_bbox)
+        img_shape = img.shape
+        results['img'] = img
+        results['img_shape'] = img_shape
+
+        # crop semantic seg
+        for key in results.get('seg_fields', []):
+            results[key] = self.crop(results[key], crop_bbox)
+
+        return results
+
+
+@PIPELINES.register_module()
 class RandomRotate(object):
     """Rotate the image & seg.
 
