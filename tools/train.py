@@ -144,13 +144,19 @@ def main():
     if cfg.checkpoint_config is not None:
         # save mmseg version, config file content and class names in
         # checkpoints as meta data
-        cfg.checkpoint_config.meta = dict(
-            mmseg_version=f'{__version__}+{get_git_hash()[:7]}',
-            config=cfg.pretty_text,
-            CLASSES=datasets[0].CLASSES,
-            PALETTE=datasets[0].PALETTE)
+        if 'CLASSES' in datasets[0]:
+            cfg.checkpoint_config.meta = dict(
+                mmseg_version=f'{__version__}+{get_git_hash()[:7]}',
+                config=cfg.pretty_text,
+                CLASSES=datasets[0].CLASSES,
+                PALETTE=datasets[0].PALETTE)
+        else:
+            cfg.checkpoint_config.meta = dict(
+                mmseg_version=f'{__version__}+{get_git_hash()[:7]}',
+                config=cfg.pretty_text)
+                
     # add an attribute for visualization convenience
-    model.CLASSES = datasets[0].CLASSES
+    model.CLASSES = datasets[0].CLASSES if 'CLASSES' in datasets[0] else 1
     # passing checkpoint meta for saving best checkpoint
     meta.update(cfg.checkpoint_config.meta)
     train_segmentor(

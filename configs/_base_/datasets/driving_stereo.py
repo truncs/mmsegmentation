@@ -1,6 +1,6 @@
 # dataset settings
 dataset_type = 'DrivingStereo'
-data_root = 'data/driving_stereo/'
+data_root = 'data/driving_stereo_sample/'
 img_norm_cfg = dict(
     mean=[123.675, 116.28, 103.53], std=[58.395, 57.12, 57.375], to_rgb=True)
 crop_size = (576, 384)
@@ -38,5 +38,7 @@ data = dict(
         data_root=data_root,
         img_dir='left/',
         depth_map_dir='depth_maps/',
+        img_suffix='.jpg',
+        depth_map_suffix='.png',
         pipeline=train_pipeline)
 )

@@ -86,9 +86,8 @@ class UPerHead(BaseDecodeHead):
 
     def forward(self, inputs):
         """Forward function."""
-
         inputs = self._transform_inputs(inputs)
-
+        
         # build laterals
         laterals = [
             lateral_conv(inputs[i])

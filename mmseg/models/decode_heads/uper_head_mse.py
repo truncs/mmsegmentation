@@ -38,24 +38,30 @@ class UPerHeadMSE(UPerHead):
         Returns:
             dict[str, Tensor]: a dictionary of loss components
         """
-        depth_target = self.forward(inputs)
-        losses = self.losses(depth_target, gt_depth, mask)
+        pred = self.forward(inputs)
+        losses = self.losses(pred, gt_depth, mask)
         return losses
 
-    @force_fp32(apply_to=('seg_logit', ))
-    def losses(self, depth_target, depth_label, mask):
+    @force_fp32(apply_to=('pred', ))
+    def losses(self, pred, gt_depth, mask):
         """Compute segmentation loss."""
         loss = dict()
-        depth_target = resize(
-            input=depth_target,
-            size=depth_label.shape[2:],
+
+        pred = pred.reshape(
+            pred.shape[0],
+            pred.shape[1],
+            -1
+        )
+        pred = resize(
+            input=pred.unsqueeze(1),
+            size=gt_depth.shape[1:],
             mode='bilinear',
             align_corners=self.align_corners)
 
-        depth_label = depth_label.squeeze(1)
+        pred = pred.squeeze()
         loss['loss_seg'] = self.loss_decode(
-            depth_target,
-            depth_label,
+            pred,
+            gt_depth,
             mask=mask)
-        loss['acc_seg'] = accuracy(depth_target, depth_label)
+        #loss['acc_seg'] = accuracy(depth_target, depth_label)
         return loss

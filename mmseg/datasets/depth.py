@@ -113,7 +113,6 @@ class DepthDataset(Dataset):
         Returns:
             list[dict]: All image info of dataset.
         """
-
         img_infos = []
         if split is not None:
             with open(split) as f:

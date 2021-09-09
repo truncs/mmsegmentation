@@ -4,7 +4,8 @@ _base_ = [
     '../_base_/schedules/schedule_80k.py'
 ]
 
-norm_cfg = dict(type='SyncBN', requires_grad=True)
+# Use SyncBN for distributed setting
+norm_cfg = dict(type='BN', requires_grad=True)
 model = dict(
     type='DepthEncoderDecoder',
     backbone=dict(
@@ -33,7 +34,7 @@ model = dict(
         pool_scales=(1, 2, 3, 6),
         channels=512,
         dropout_ratio=0.1,
-        num_classes=1,
+        num_classes=512,
         norm_cfg=norm_cfg,
         align_corners=False,
         loss_decode=dict(

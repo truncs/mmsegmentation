@@ -204,9 +204,9 @@ class LoadDepth(object):
 
         # TODO: you would probably need a mask as well so that the pixels
         # that are zero can be masked.
-        results['depth_map'] = depth_map
-        results['inv_depth_map'] = inv_depth_map
-        results['mask'] = mask
+        results['depth_map'] = depth_map.astype(np.float32)
+        results['inv_depth_map'] = inv_depth_map.astype(np.float32)
+        results['mask'] = mask.astype(np.float32)
 
         # TODO: This is essentially a hack to get the mmcv segmentation
         # pipeline to work with depth.

@@ -14,7 +14,7 @@ class MSELoss(nn.Module):
     """
 
     def __init__(self,
-                 use_mask=False,
+                 use_mask=True,
                  reduction='mean',
                  class_weight=None,
                  loss_weight=1.0):
@@ -35,12 +35,11 @@ class MSELoss(nn.Module):
                 mask,
                 **kwargs):
         """Forward function."""
-
+        if self.use_mask:
+            input = mask * input
         loss = self.loss_cls(input, target)
 
-        if self.use_mask:
-            loss = mask * loss
-            if self.reduction == 'mean':
+        if self.use_mask and self.reduction == 'mean':
                 loss = loss / mask.sum()
 
         return loss
