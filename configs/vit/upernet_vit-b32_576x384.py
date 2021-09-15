@@ -1,7 +1,7 @@
 # model settings
 _base_ = [
     '../_base_/datasets/driving_stereo.py', '../_base_/default_runtime.py',
-    '../_base_/schedules/schedule_80k.py'
+    '../_base_/schedules/schedule_160k.py'
 ]
 
 # Use SyncBN for distributed setting
@@ -38,7 +38,7 @@ model = dict(
         norm_cfg=norm_cfg,
         align_corners=False,
         loss_decode=dict(
-            type='MSELoss')),
+            type='SupervisedInverseDepthLoss')),
     # model training and testing settings
     train_cfg=dict(),
     test_cfg=dict(mode='whole'))  # yapf: disable
@@ -69,4 +69,5 @@ lr_config = dict(
     by_epoch=False)
 
 # By default, models are trained on 8 GPUs with 2 images per GPU
-data = dict(samples_per_gpu=2)
+data = dict(
+    samples_per_gpu=8)

@@ -649,7 +649,8 @@ class DepthRandomCrop(RandomCrop):
         crop_bbox = self.get_crop_bbox(img)
         # Repeat 10 times
         for _ in range(10):
-            mask = self.crop(results['mask'], crop_bbox)
+            depth_map = self.crop(results['depth_map'], crop_bbox)
+            mask = (depth_map > 0) * 1
             if np.sum(mask) / np.size(mask) > self.valid_min_ratio:
                 break
             crop_bbox = self.get_crop_bbox(img)

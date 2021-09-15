@@ -1,6 +1,7 @@
 # Copyright (c) OpenMMLab. All rights reserved.
 import matplotlib.pyplot as plt
 import mmcv
+import numpy as np
 import torch
 from mmcv.parallel import collate, scatter
 from mmcv.runner import load_checkpoint
@@ -67,6 +68,85 @@ class LoadImage:
         return results
 
 
+class LoadDepth:
+    """A simple pipeline to load image."""
+
+    def __call__(self, results):
+        """Call function to load images into results.
+
+        Args:
+            results (dict): A result dict contains the file name
+                of the image to be read.
+
+        Returns:
+            dict: ``results`` will be returned containing loaded image.
+        """
+        
+        file_client = mmcv.FileClient()
+        img_bytes = file_client.get(results['depth_map'])
+
+        depth_map = mmcv.imfrombytes(
+            img_bytes, flag='unchanged',
+            backend='pillow').squeeze().astype(np.uint16)
+
+        depth_map = depth_map / 256.0
+        inv_depth_map = np.divide(1, depth_map, where=depth_map > 0.0)
+        mask = depth_map != 0.0
+        mask = 1 * mask
+
+        inv_depth_map = mask * inv_depth_map
+        inv_depth_map = np.nan_to_num(inv_depth_map)
+
+        results['depth_map'] = depth_map.astype(np.float32)
+        results['inv_depth_map'] = inv_depth_map.astype(np.float32)
+        results['mask'] = mask.astype(np.float32)
+
+        return results
+
+
+def depth_inference_segmentor(model, img, depth_map=None, with_loss=False):
+    """Inference image(s) with the segmentor.
+
+    Args:
+        model (nn.Module): The loaded segmentor.
+        imgs (str/ndarray or list[str/ndarray]): Either image files or loaded
+            images.
+
+    Returns:
+        (list[Tensor]): The segmentation result.
+    """
+    cfg = model.cfg
+    device = next(model.parameters()).device  # model device
+    # build the data pipeline
+    if depth_map:
+        test_pipeline = [LoadImage()] + [LoadDepth()] + cfg.data.test.pipeline[1:]
+        data = dict(img=img, depth_map=depth_map)
+    else:
+        test_pipeline = [LoadImage()] + cfg.data.test.pipeline[1:]
+        data = dict(img=img)
+
+    test_pipeline = Compose(test_pipeline)
+
+    # prepare data
+    data = test_pipeline(data)
+    data = collate([data], samples_per_gpu=1)
+
+    if next(model.parameters()).is_cuda:
+        # scatter to specified GPU
+        data = scatter(data, [device])[0]
+    else:
+        data['img_metas'] = [i.data[0] for i in data['img_metas']]
+
+    # forward the model
+    with torch.no_grad():
+        if with_loss:
+            for key in data.keys():
+                data[key] = data[key][0]
+        result = model(return_loss=with_loss, rescale=True, **data)
+
+    return result
+
+
 def inference_segmentor(model, img):
     """Inference image(s) with the segmentor.
 
@@ -87,6 +167,7 @@ def inference_segmentor(model, img):
     data = dict(img=img)
     data = test_pipeline(data)
     data = collate([data], samples_per_gpu=1)
+
     if next(model.parameters()).is_cuda:
         # scatter to specified GPU
         data = scatter(data, [device])[0]
@@ -95,8 +176,9 @@ def inference_segmentor(model, img):
 
     # forward the model
     with torch.no_grad():
-        result = model(return_loss=False, rescale=True, **data)
+        result = model(return_loss=True, rescale=True, **data)
     return result
+
 
 
 def show_result_pyplot(model,

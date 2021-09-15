@@ -21,7 +21,7 @@ class UPerHeadMSE(UPerHead):
         super(UPerHeadMSE, self).__init__(
             pool_scales=pool_scales, **kwargs)
 
-    def forward_train(self, inputs, img_metas, gt_depth, mask, train_cfg):
+    def forward_train(self, inputs, img_metas, gt_depth, train_cfg):
         """Forward function for training.
         Args:
             inputs (list[Tensor]): List of multi-level img features.
@@ -38,12 +38,13 @@ class UPerHeadMSE(UPerHead):
             dict[str, Tensor]: a dictionary of loss components
         """
         pred = self.forward(inputs)
-        losses = self.losses(pred, gt_depth, mask)
+        losses = self.losses(pred, gt_depth)
         return losses
 
     @force_fp32(apply_to=('pred', ))
-    def losses(self, pred, gt_depth, mask):
+    def losses(self, pred, gt_depth):
         """Compute segmentation loss."""
+
         loss = dict()
 
         pred = pred.reshape(
@@ -60,7 +61,6 @@ class UPerHeadMSE(UPerHead):
         pred = pred.squeeze()
         loss['loss_seg'] = self.loss_decode(
             pred,
-            gt_depth,
-            mask=mask)
+            gt_depth)
 
         return loss

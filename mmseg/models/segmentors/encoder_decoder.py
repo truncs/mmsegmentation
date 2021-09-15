@@ -207,13 +207,14 @@ class EncoderDecoder(BaseSegmentor):
                 size = img.shape[2:]
             else:
                 size = img_meta[0]['ori_shape'][:2]
+
             seg_logit = resize(
-                seg_logit,
+                seg_logit.unsqueeze(dim=1),
                 size=size,
                 mode='bilinear',
                 align_corners=self.align_corners,
                 warning=False)
-
+            seg_logit = seg_logit.squeeze(dim=1)
         return seg_logit
 
     def inference(self, img, img_meta, rescale):
@@ -313,36 +314,49 @@ class DepthEncoderDecoder(EncoderDecoder):
             init_cfg
         )
 
-    def _decode_head_forward_train(self, x, img_metas, inv_depth_map, mask):
+    def encode_decode(self, img, img_metas):
+        """Encode images with backbone and decode into a semantic segmentation
+        map of the same size as input."""
+        x = self.extract_feat(img)
+        out = self._decode_head_forward_test(x, img_metas)
+        out = out.reshape(out.shape[0], out.shape[1], -1)
+
+        out = resize(
+            input=out.unsqueeze(dim=1),
+            size=img.shape[2:],
+            mode='bilinear',
+            align_corners=self.align_corners)
+        out = out.squeeze(dim=1)
+        return out
+
+    def _decode_head_forward_train(self, x, img_metas, depth_map):
         """Run forward function and calculate loss for decode head in
         training."""
         losses = dict()
         loss_decode = self.decode_head.forward_train(x, img_metas,
-                                                     inv_depth_map,
-                                                     mask,
+                                                     depth_map,
                                                      self.train_cfg)
         losses.update(add_prefix(loss_decode, 'decode'))
         return losses
 
-    def _auxiliary_head_forward_train(self, x, img_metas, inv_depth_map, mask):
+    def _auxiliary_head_forward_train(self, x, img_metas, depth_map):
         """Run forward function and calculate loss for auxiliary head in
         training."""
         losses = dict()
         if isinstance(self.auxiliary_head, nn.ModuleList):
             for idx, aux_head in enumerate(self.auxiliary_head):
                 loss_aux = aux_head.forward_train(x, img_metas,
-                                                  inv_depth_map,
-                                                  mask,
+                                                  depth_map,
                                                   self.train_cfg)
                 losses.update(add_prefix(loss_aux, f'aux_{idx}'))
         else:
             loss_aux = self.auxiliary_head.forward_train(
-                x, img_metas, inv_depth_map, self.train_cfg)
+                x, img_metas, depth_map, self.train_cfg)
             losses.update(add_prefix(loss_aux, 'aux'))
 
         return losses
 
-    def forward_train(self, img, img_metas, inv_depth_map, mask):
+    def forward_train(self, img, img_metas, depth_map, **kwargs):
         """Forward function for training.
 
 
@@ -362,13 +376,62 @@ class DepthEncoderDecoder(EncoderDecoder):
         x = self.extract_feat(img)
 
         losses = dict()
-        loss_decode = self._decode_head_forward_train(x, img_metas,
-                                                      inv_depth_map, mask)
+        loss_decode = self._decode_head_forward_train(x, img_metas, depth_map)
         losses.update(loss_decode)
 
         if self.with_auxiliary_head:
             loss_aux = self._auxiliary_head_forward_train(
-                x, img_metas, inv_depth_map, mask)
+                x, img_metas, depth_map)
             losses.update(loss_aux)
 
         return losses
+
+    def inference(self, img, img_meta, rescale):
+        """Inference with slide/whole style.
+
+        Args:
+            img (Tensor): The input image of shape (N, 3, H, W).
+            img_meta (dict): Image info dict where each dict has: 'img_shape',
+                'scale_factor', 'flip', and may also contain
+                'filename', 'ori_shape', 'pad_shape', and 'img_norm_cfg'.
+                For details on the values of these keys see
+                `mmseg/datasets/pipelines/formatting.py:Collect`.
+            rescale (bool): Whether rescale back to original shape.
+
+        Returns:
+            Tensor: The output segmentation map.
+        """
+
+        assert self.test_cfg.mode in ['slide', 'whole']
+        ori_shape = img_meta[0]['ori_shape']
+        assert all(_['ori_shape'] == ori_shape for _ in img_meta)
+
+        if self.test_cfg.mode == 'slide':
+            seg_logit = self.slide_inference(img, img_meta, rescale)
+        else:
+            seg_logit = self.whole_inference(img, img_meta, rescale)
+        output = seg_logit
+        flip = img_meta[0]['flip']
+        if flip:
+            flip_direction = img_meta[0]['flip_direction']
+            assert flip_direction in ['horizontal', 'vertical']
+            if flip_direction == 'horizontal':
+                output = output.flip(dims=(3, ))
+            elif flip_direction == 'vertical':
+                output = output.flip(dims=(2, ))
+
+        return output
+
+    def simple_test(self, img, img_meta, rescale=True, **kwargs):
+        """Simple test with single image."""
+        seg_logit = self.inference(img, img_meta, rescale)
+        seg_pred = seg_logit
+        if torch.onnx.is_in_onnx_export():
+            # our inference backend only support 4D output
+            seg_pred = seg_pred.unsqueeze(0)
+            return seg_pred
+        seg_pred = seg_pred.cpu().numpy()
+        # unravel batch dim
+        seg_pred = list(seg_pred)
+        return seg_pred
+

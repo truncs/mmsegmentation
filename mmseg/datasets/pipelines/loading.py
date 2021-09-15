@@ -198,25 +198,13 @@ class LoadDepth(object):
             backend=self.imdecode_backend).squeeze().astype(np.uint16)
 
         depth_map = depth_map / 256.0
-        inv_depth_map = np.divide(1, depth_map, where=depth_map > 0.0)
-        mask = depth_map != 0.0
-        mask = 1 * mask
-
-        # To make sure that typecasting to float32 doesn't lead to infinities
-        # TODO: this feels a bit hacky so will have to figure out why some
-        # of elements appear as NaN
-        inv_depth_map = mask * inv_depth_map
-        inv_depth_map = np.nan_to_num(inv_depth_map)
 
         results['depth_map'] = depth_map.astype(np.float32)
-        results['inv_depth_map'] = inv_depth_map.astype(np.float32)
-        results['mask'] = mask.astype(np.float32)
 
         # TODO: This is essentially a hack to get the mmcv segmentation
         # pipeline to work with depth.
         results['seg_fields'].append('depth_map')
-        results['seg_fields'].append('inv_depth_map')
-        results['seg_fields'].append('mask')
+
         return results
 
     def __repr__(self):
