@@ -1,3 +1,4 @@
+
 # Copyright (c) OpenMMLab. All rights reserved.
 import os.path as osp
 
@@ -197,10 +198,9 @@ class LoadDepth(object):
             img_bytes, flag='unchanged',
             backend=self.imdecode_backend).squeeze().astype(np.uint16)
 
-        depth_map = depth_map
+        depth_map = depth_map / 256.0
 
-        # Convert mm to meters
-        results['depth_map'] = depth_map.astype(np.float32) / 1000.0
+        results['depth_map'] = depth_map.astype(np.float32)
 
         # TODO: This is essentially a hack to get the mmcv segmentation
         # pipeline to work with depth.

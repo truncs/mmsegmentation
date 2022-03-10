@@ -47,13 +47,8 @@ class UPerHeadMSE(UPerHead):
 
         loss = dict()
 
-        pred = pred.reshape(
-            pred.shape[0],
-            pred.shape[1],
-            -1
-        )
         pred = resize(
-            input=pred.unsqueeze(1),
+            input=pred,
             size=gt_depth.shape[1:],
             mode='bilinear',
             align_corners=self.align_corners)

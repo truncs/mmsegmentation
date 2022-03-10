@@ -8,10 +8,11 @@ _base_ = [
 norm_cfg = dict(type='BN', requires_grad=True)
 model = dict(
     type='DepthEncoderDecoder',
+    pretrained='https://github.com/rwightman/pytorch-image-models/releases/download/v0.1-vitjx/jx_vit_base_p16_224-80ecf9dd.pth',  # noqa
     backbone=dict(
         type='VisionTransformer',
         img_size=(384, 576),
-        patch_size=32,
+        patch_size=16,
         in_channels=3,
         embed_dims=768,
         num_layers=12,
@@ -27,6 +28,11 @@ model = dict(
         act_cfg=dict(type='GELU'),
         norm_eval=False,
         interpolate_mode='bicubic'),
+    neck=dict(
+        type='MultiLevelNeck',
+        in_channels=[768, 768, 768, 768],
+        out_channels=768,
+        scales=[4, 2, 1, 0.5]),
     decode_head=dict(
         type='UPerHeadMSE',
         in_channels=[768, 768, 768, 768],
@@ -34,7 +40,7 @@ model = dict(
         pool_scales=(1, 2, 3, 6),
         channels=512,
         dropout_ratio=0.1,
-        num_classes=512,
+        num_classes=1,
         norm_cfg=norm_cfg,
         align_corners=False,
         loss_decode=dict(
@@ -70,4 +76,4 @@ lr_config = dict(
 
 # By default, models are trained on 8 GPUs with 2 images per GPU
 data = dict(
-    samples_per_gpu=8)
+    samples_per_gpu=2)

@@ -1,7 +1,7 @@
 # Copyright (c) OpenMMLab. All rights reserved.
 from .ann_head import ANNHead
 from .apc_head import APCHead
-from .aspp_head import ASPPHead
+from .aspp_head import ASPPHead, ASPPDepthHead
 from .cc_head import CCHead
 from .da_head import DAHead
 from .dm_head import DMHead
@@ -27,7 +27,7 @@ from .uper_head_mse import UPerHeadMSE
 
 
 __all__ = [
-    'FCNHead', 'PSPHead', 'ASPPHead', 'PSAHead', 'NLHead', 'GCHead', 'CCHead',
+    'FCNHead', 'PSPHead', 'ASPPHead', 'ASPPDepthHead', 'PSAHead', 'NLHead', 'GCHead', 'CCHead',
     'UPerHead', 'UPerHeadMSE', 'DepthwiseSeparableASPPHead', 'ANNHead',
     'DAHead', 'OCRHead', 'EncHead', 'DepthwiseSeparableFCNHead', 'FPNHead',
     'EMAHead', 'DNLHead', 'PointHead', 'APCHead', 'DMHead', 'LRASPPHead',

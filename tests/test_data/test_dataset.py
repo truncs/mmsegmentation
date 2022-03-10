@@ -67,7 +67,7 @@ def test_depth_dataset():
         mean=[123.675, 116.28, 103.53],
         std=[58.395, 57.12, 57.375],
         to_rgb=True)
-    crop_size = (576, 384)
+    crop_size = (384, 576)
     train_pipeline = [
         dict(type='LoadImageFromFile'),
         dict(type='LoadDepth'),

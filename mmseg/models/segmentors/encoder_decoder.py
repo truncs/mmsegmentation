@@ -199,7 +199,6 @@ class EncoderDecoder(BaseSegmentor):
 
     def whole_inference(self, img, img_meta, rescale):
         """Inference with full image."""
-
         seg_logit = self.encode_decode(img, img_meta)
         if rescale:
             # support dynamic shape for onnx

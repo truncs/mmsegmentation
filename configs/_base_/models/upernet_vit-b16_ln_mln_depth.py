@@ -1,17 +1,12 @@
-# model settings
-_base_ = [
-    '../_base_/datasets/driving_stereo.py', '../_base_/default_runtime.py',
-    '../_base_/schedules/schedule_160k.py'
-]
-
 # Use SyncBN for distributed setting
 norm_cfg = dict(type='BN', requires_grad=True)
 model = dict(
     type='DepthEncoderDecoder',
+    pretrained='https://github.com/rwightman/pytorch-image-models/releases/download/v0.1-vitjx/jx_vit_base_p16_224-80ecf9dd.pth',  # noqa
     backbone=dict(
         type='VisionTransformer',
         img_size=(384, 576),
-        patch_size=32,
+        patch_size=16,
         in_channels=3,
         embed_dims=768,
         num_layers=12,
@@ -27,6 +22,11 @@ model = dict(
         act_cfg=dict(type='GELU'),
         norm_eval=False,
         interpolate_mode='bicubic'),
+    neck=dict(
+        type='MultiLevelNeck',
+        in_channels=[768, 768, 768, 768],
+        out_channels=768,
+        scales=[4, 2, 1, 0.5]),
     decode_head=dict(
         type='UPerHeadMSE',
         in_channels=[768, 768, 768, 768],
@@ -34,7 +34,7 @@ model = dict(
         pool_scales=(1, 2, 3, 6),
         channels=512,
         dropout_ratio=0.1,
-        num_classes=512,
+        num_classes=1,
         norm_cfg=norm_cfg,
         align_corners=False,
         loss_decode=dict(
@@ -42,32 +42,3 @@ model = dict(
     # model training and testing settings
     train_cfg=dict(),
     test_cfg=dict(mode='whole'))  # yapf: disable
-
-# AdamW optimizer, no weight decay for position embedding & layer norm
-# in backbone
-optimizer = dict(
-    _delete_=True,
-    type='AdamW',
-    lr=0.00006,
-    betas=(0.9, 0.999),
-    weight_decay=0.01,
-    paramwise_cfg=dict(
-        custom_keys={
-            'pos_embed': dict(decay_mult=0.),
-            'cls_token': dict(decay_mult=0.),
-            'norm': dict(decay_mult=0.)
-        }))
-
-lr_config = dict(
-    _delete_=True,
-    policy='poly',
-    warmup='linear',
-    warmup_iters=1500,
-    warmup_ratio=1e-6,
-    power=1.0,
-    min_lr=0.0,
-    by_epoch=False)
-
-# By default, models are trained on 8 GPUs with 2 images per GPU
-data = dict(
-    samples_per_gpu=8)

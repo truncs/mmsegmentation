@@ -8,13 +8,14 @@ from .dataset_wrappers import ConcatDataset, RepeatDataset
 from .depth import DepthDataset
 from .drive import DRIVEDataset
 from .driving_stereo import DrivingStereo
+from .diml import DIML
 from .hrf import HRFDataset
 from .pascal_context import PascalContextDataset, PascalContextDataset59
 from .stare import STAREDataset
 from .voc import PascalVOCDataset
 
 __all__ = [
-    'CustomDataset', 'build_dataloader', 'ConcatDataset', 'DepthDataset',
+    'CustomDataset', 'build_dataloader', 'ConcatDataset', 'DepthDataset', 'DIML',
     'DrivingStereo', 'RepeatDataset', 'DATASETS', 'build_dataset', 'PIPELINES',
     'CityscapesDataset', 'PascalVOCDataset', 'ADE20KDataset',
     'PascalContextDataset', 'PascalContextDataset59', 'ChaseDB1Dataset',
